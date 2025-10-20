@@ -8,6 +8,7 @@ Usage:
 
 import argparse
 import sys
+import re
 from pathlib import Path
 from litellm import completion
 import replicate
