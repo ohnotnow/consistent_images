@@ -111,10 +111,19 @@ def generate_image(style_guide_path, prompt):
 
     print(f"Image URL: {image_url}")
     image_content = requests.get(image_url).content
-    filename = make_safe_filename(prompt)
-    with open(filename, "wb") as f:
+    base_filename = make_safe_filename(prompt)
+    for i in range(1, 100):
+        output_filename = f"{base_filename}_{i:02d}.png"
+        if not Path(output_filename).exists():
+            break
+    else:
+        # Reached 99, just use it anyway (will overwrite if exists)
+        output_filename = f"{base_filename}_99.png"
+
+    with open(output_filename, "wb") as f:
         f.write(image_content)
-    return filename
+
+    return output_filename
 
 def main():
     parser = argparse.ArgumentParser(
