@@ -136,6 +136,13 @@ def main():
         required=True,
         help='Path to style guide file (e.g., style-guides/jmw_turner.md)'
     )
+
+    parser.add_argument(
+        '--number',
+        type=int,
+        default=1,
+        help='Number of images to generate (default: 1)'
+    )
     
     parser.add_argument(
         'prompt',
@@ -149,8 +156,9 @@ def main():
     user_prompt = ' '.join(args.prompt)
     
     # Generate the enhanced prompt
-    filename = generate_image(args.style_guide, user_prompt)
-    print(f"Image generated: {filename}")
+    for i in range(args.number):
+        filename = generate_image(args.style_guide, user_prompt)
+        print(f"Image {i + 1} generated: {filename}")
 
 if __name__ == "__main__":
     main()
