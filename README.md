@@ -48,6 +48,9 @@ The LLM analyzes the artist/style and creates a detailed guide covering:
 python generate_image.py --style-guide style-guides/jmw_turner.md futuristic nanobot assembly process
 
 python generate_image.py --style-guide style-guides/art_nouveau.md a high octane car chase
+
+# Generate multiple variations at once
+python generate_image.py --style-guide style-guides/jmw_turner.md --number 4 futuristic nanobot assembly process
 ```
 
 The script combines your prompt with the style guide and outputs an enhanced prompt.
@@ -62,4 +65,3 @@ uv sync
 ## License
 
 MIT
-
