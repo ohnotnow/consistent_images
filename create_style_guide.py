@@ -1,18 +1,26 @@
 #!/usr/bin/env python3
 """
 Create a style guide for consistent image generation using an LLM.
-Usage: 
+Usage:
     python create_style_guide.py --artist "J. M. W. Turner"
     python create_style_guide.py --style "Art Nouveau"
-    
+    python create_style_guide.py --images "image1.jpg,image2.png,image3.jpg"
+
 Set your LLM API key as an environment variable:
     export OPENAI_API_KEY="your-key"  # or ANTHROPIC_API_KEY, etc.
 """
 
 import argparse
+import base64
 import os
+from datetime import datetime
 from pathlib import Path
 from litellm import completion
+
+def encode_image(image_path):
+    """Encode an image file to base64 string."""
+    with open(image_path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode('utf-8')
 
 # Example style guide to use as a template
 EXAMPLE_STYLE_GUIDE = """# J. M. W. Turner Style Guide
@@ -57,7 +65,7 @@ Apply these characteristics while maintaining the core subject matter of the pro
 The Turner style should enhance, not overwhelm, the specific content requested.
 """
 
-def generate_style_guide_with_llm(name, is_artist=True, model="openai/gpt-5-mini"):
+def generate_style_guide_with_llm(name, is_artist=True, model="gpt-4o-mini"):
     """Use an LLM to generate a detailed style guide."""
     
     type_str = "artist" if is_artist else "artistic style or movement"
@@ -101,6 +109,109 @@ Return ONLY the markdown-formatted style guide, starting with the title.
         print("3. Have access to the specified model")
         return None
 
+def analyze_image_with_llm(image_path, model="gpt-4o-mini"):
+    """Analyze a single image to extract visual style characteristics."""
+
+    print(f"🔍 Analyzing image: {image_path}")
+
+    try:
+        # Encode the image
+        base64_image = encode_image(image_path)
+
+        # Determine image format from file extension
+        image_format = Path(image_path).suffix.lstrip('.').lower()
+        if image_format == 'jpg':
+            image_format = 'jpeg'
+
+        prompt = """Analyze this image and describe its visual style characteristics in detail.
+Focus on the following categories:
+
+1. **Core Characteristics**: The most distinctive visual elements
+2. **Color Palette**: Specific colors, color relationships, and overall color mood
+3. **Composition**: How space and elements are arranged, perspective, balance
+4. **Technique**: Brushwork, mark-making, texture, or technical approach visible
+5. **Mood**: The emotional and atmospheric qualities
+6. **Subject Matter**: What is depicted in the image
+
+Be specific and detailed. Focus on visual characteristics that could be used to recreate a similar style.
+Format your response with clear headings for each category."""
+
+        response = completion(
+            model=model,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": prompt
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/{image_format};base64,{base64_image}",
+                                "detail": "high"
+                            }
+                        }
+                    ]
+                }
+            ],
+            temperature=0.7
+        )
+
+        analysis = response.choices[0].message.content
+        print(f"✓ Analysis complete for {image_path}")
+        return analysis
+
+    except Exception as e:
+        print(f"❌ Error analyzing image {image_path}: {e}")
+        return None
+
+def synthesize_style_guide_from_images(analyses, model="gpt-4o-mini"):
+    """Synthesize multiple image analyses into a unified style guide."""
+
+    print(f"🎨 Synthesizing style guide from {len(analyses)} image analyses...")
+
+    # Combine all analyses
+    combined_analyses = "\n\n---\n\n".join([f"## Image {i+1} Analysis\n{analysis}"
+                                             for i, analysis in enumerate(analyses)])
+
+    prompt = f"""You are an expert art historian and visual style analyst. You have been provided with detailed analyses of {len(analyses)} images. Your task is to identify the common visual patterns and characteristics across all these images and create a unified style guide.
+
+Here are the individual image analyses:
+
+{combined_analyses}
+
+---
+
+Based on these analyses, create a comprehensive style guide that captures the CONSISTENT elements across all images. Follow this exact format:
+
+{EXAMPLE_STYLE_GUIDE}
+
+Your style guide should:
+1. Identify patterns that appear across MULTIPLE images (not just one)
+2. Focus on visual characteristics that can be reproduced
+3. Note any variations or range within the style
+4. Be specific about colors, composition, technique, and mood
+5. Include an "Application Note" section explaining how to apply the style while maintaining subject matter
+
+Return ONLY the markdown-formatted style guide, starting with a descriptive title based on the common characteristics you've identified."""
+
+    try:
+        response = completion(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7
+        )
+
+        guide_content = response.choices[0].message.content
+        print("✓ Style guide synthesis complete")
+        return guide_content
+
+    except Exception as e:
+        print(f"❌ Error synthesizing style guide: {e}")
+        return None
+
 def create_style_guide(name, is_artist=True, model="gpt-4o-mini"):
     """Generate a detailed style guide based on artist or style."""
     
@@ -132,6 +243,7 @@ def main():
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('--artist', help='Artist name (e.g., "J. M. W. Turner")')
     group.add_argument('--style', help='Style or movement (e.g., "Art Nouveau")')
+    group.add_argument('--images', help='Comma-separated list of image paths to analyze (e.g., "img1.png,img2.jpg")')
     
     parser.add_argument(
         '--model',
@@ -140,8 +252,47 @@ def main():
     )
     
     args = parser.parse_args()
-    
-    if args.artist:
+
+    if args.images:
+        # Handle image-based style guide generation
+        image_paths = [path.strip() for path in args.images.split(',')]
+
+        print(f"📸 Processing {len(image_paths)} images...")
+
+        # Analyze each image
+        analyses = []
+        for image_path in image_paths:
+            # Check if file exists
+            if not Path(image_path).exists():
+                print(f"❌ Error: Image file not found: {image_path}")
+                return
+
+            analysis = analyze_image_with_llm(image_path, model=args.model)
+            if analysis is None:
+                print(f"❌ Failed to analyze {image_path}. Aborting.")
+                return
+            analyses.append(analysis)
+
+        # Synthesize the style guide
+        guide = synthesize_style_guide_from_images(analyses, model=args.model)
+        if guide is None:
+            print("❌ Failed to synthesize style guide. Aborting.")
+            return
+
+        # Create style-guides directory if it doesn't exist
+        Path("style-guides").mkdir(exist_ok=True)
+
+        # Generate filename with timestamp
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filepath = f"style-guides/images-{timestamp}.md"
+
+        # Write to file
+        with open(filepath, 'w') as f:
+            f.write(guide)
+
+        print(f"✓ Style guide created: {filepath}")
+
+    elif args.artist:
         create_style_guide(args.artist, is_artist=True, model=args.model)
     else:
         create_style_guide(args.style, is_artist=False, model=args.model)
