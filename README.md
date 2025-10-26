@@ -30,16 +30,21 @@ python create_style_guide.py --artist "J. M. W. Turner"
 # For an artistic style/movement
 python create_style_guide.py --style "Art Nouveau"
 
+# From reference images (analyzes your images to extract the style!)
+python create_style_guide.py --images "image1.jpg,image2.png,image3.jpg"
+
 # Use a different model
 python create_style_guide.py --artist "Hokusai" --model anthropic/claude-4-5-sonnet
 ```
 
-The LLM analyzes the artist/style and creates a detailed guide covering:
+The LLM analyzes the artist/style/images and creates a detailed guide covering:
 - Core visual characteristics
 - Color palettes
 - Composition techniques
 - Technical approaches
 - Mood and atmosphere
+
+**Image-based style guides**: When using `--images`, the script analyzes each image individually using a vision model, then synthesizes a unified style guide from the common patterns across all images. Perfect for when you have reference images but don't know the exact artist or style name!
 
 ### 2. Generate Images
 

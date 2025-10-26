@@ -257,16 +257,28 @@ def main():
         # Handle image-based style guide generation
         image_paths = [path.strip() for path in args.images.split(',')]
 
+        # Pre-check: validate all files exist before starting
+        print(f"🔍 Validating {len(image_paths)} image files...")
+        valid_files = []
+        invalid_files = []
+        for image_path in image_paths:
+            if Path(image_path).exists():
+                valid_files.append(image_path)
+                print(f"   ✓ {image_path}")
+            else:
+                invalid_files.append(image_path)
+                print(f"   ❌ {image_path}")
+
+        if invalid_files:
+            print(f"\n❌ Error: {len(invalid_files)} file(s) not found. Please check the filenames and try again.")
+            return
+
+        print(f"\n✓ All {len(valid_files)} files validated")
         print(f"📸 Processing {len(image_paths)} images...")
 
         # Analyze each image
         analyses = []
         for image_path in image_paths:
-            # Check if file exists
-            if not Path(image_path).exists():
-                print(f"❌ Error: Image file not found: {image_path}")
-                return
-
             analysis = analyze_image_with_llm(image_path, model=args.model)
             if analysis is None:
                 print(f"❌ Failed to analyze {image_path}. Aborting.")
